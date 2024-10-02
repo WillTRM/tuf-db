@@ -47,13 +47,75 @@ def add_players_from_file(file):
     df.to_sql("player", con = con, if_exists = "append", index = False, method = "multi")
     con.commit()
 
+# adds clears and calculates accuracy for each one
+# split accuracy into own function later
 def add_clears_from_file(file):
     df = pd.read_csv(file)
-    df.drop(["12K", "server message", "wf indicator", "Published Date", "Publish Date (GMT)", "hehe funny id go brrrr", "WF score", "PP score"], axis = 1, inplace = True)
-    df = df[["Pid", "id", "Passer", "Feeling Difficulty", "Title", "*/Raw Video ID", "*/Raw Time (GMT)", "Early!!", "Early!", "EPerfect!", "Perfect!", "LPerfect!", "Late! ", "Late!!", "Score", "Xacc", "NHT", "isLegacy"]]
-    df.columns = ["id", "chart_id", "player_id", "fr", "title", "video", "time", "too_early", "early", "eperfect", "perfect", "lperfect", "late", "too_late", "pp", "acc", "no_hold", "legacy"]
+    df.drop(["12K", "server message", "wf indicator", "Published Date", "Publish Date (GMT)", "hehe funny id go brrrr", "WF score", "PP score", "Late!!"], axis = 1, inplace = True)
+    df = df[["Pid", "id", "Passer", "Feeling Difficulty", "Title", "*/Raw Video ID", "*/Raw Time (GMT)", "Early!!", "Early!", "EPerfect!", "Perfect!", "LPerfect!", "Late! ", "Score", "Xacc", "NHT", "isLegacy"]]
+    df.columns = ["id", "chart_id", "player_id", "fr", "title", "video", "time", "too_early", "early", "eperfect", "perfect", "lperfect", "late", "pp", "acc", "no_hold", "legacy"]
     df.to_sql("clear", con = con, if_exists = "append", index = False, method = "multi")
     cur.execute("UPDATE clear SET player_id = (SELECT id FROM player WHERE player.name = clear.player_id)")
+    
+    cur.execute("DELETE from clear WHERE chart_id IS null")
+
+    cur.execute("SELECT too_early, early, eperfect, perfect, lperfect, late FROM clear")
+    for index, row in enumerate(cur.fetchall()):
+        try:
+            acc = calculate_accuracy(*row)
+            cur.execute("UPDATE clear SET acc = (?) WHERE id = (?)", (acc, index + 1))
+        except TypeError:
+            cur.execute("UPDATE clear SET acc = 95.0 WHERE id = (?)", (index + 1,))
+        # print(row)
+        # print(acc)
+        if (index + 1) % 100 == 0:
+            print(index + 1)
     con.commit()
+
+#---------------
+# returns on a scale of 0 - 100
+def calculate_accuracy(te, e, ep, p, lp, l):
+    perfect = p * 100
+    elperfect = (ep + lp) * 75
+    el = (e + l) * 40
+    tooearly = te * 20
+
+    weighted_sum = perfect + elperfect + el + tooearly
+    judgement_count = te + e + ep + p + lp + l
+
+    return weighted_sum / judgement_count
+
+def calculate_pp(scorebase, xacc, speed, nomiss: bool):
+    if xacc < 95:
+        xacc_multiplier = 1
+    elif xacc < 100:
+        xacc_multiplier = (-0.027 / ((xacc / 100) - 1.0054) + 0.513)
+    elif xacc >= 100:
+        xacc_multiplier = 10
+    else:
+        xacc_multiplier = 1
+
+    if speed < 1:
+        speed_multiplier = 0
+    elif speed < 1.1:
+        speed_multiplier = (-3.5 * speed) + 4.5
+    elif speed < 1.5:
+        speed_multiplier = 0.65
+    elif speed < 2:
+        speed_multiplier = (0.7 * speed) - 0.4
+    else:
+        speed_multiplier = 1
+
+    if nomiss:
+        nm_multiplier = 1.1
+    else:
+        nm_multiplier = 1
+
+    return scorebase * xacc_multiplier * speed_multiplier * nm_multiplier
+
+# acc = calculate_accuracy(24, 33, 45, 4797, 22, 1, 0)
+# print(calculate_pp(400, acc, 1, False))
+kill_everyone()
+add_clears_from_file("clears.csv")
 
 con.close()
