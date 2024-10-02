@@ -33,19 +33,27 @@ def add_chart(chart_id, song, artist, charter, vfxer, team, video, dl, workshop,
 def add_charts_from_file(file):
     df = pd.read_csv(file)
     df.drop(["low diff", "Diff API Num", "Creator(s)", "Difficulty", "Legacy", "LegacyNum", "Diff Num", "realDiff", "clear", "cleared?", "cleared U", "16K", "Mixed", "starred", "M.Diff"], axis = 1, inplace = True)
-    #print(len(df.columns.tolist()))
     df = df[["F", "Song", "Artist(s)", "charter", "vfx", "team", "Raw Video Link", "Raw DL Link", "Raw Workshop Link", "diff num new", "real diff new", "requester FR", "base score", "public comments"]]
     df.columns = ["id", "song", "artist", "charter", "vfxer", "team", "video", "dl", "workshop", "diff", "real_diff", "requester_diff", "score", "comment"]
     df.to_sql("chart", con = con, if_exists = "append", index = False, method = "multi")
     con.commit()
-  
+
+def add_players_from_file(file):
+    df = pd.read_csv(file)
+    df.drop(["player name (formula)", "country", "banned?", "country code data", "flag"], axis = 1, inplace = True)
+    df = df[["Fvotg", "Country", "TGS", "TRS", "TWFS", "TPPS", "isbanned"]]
+    df.columns = ["name", "country", "general_score", "ranked_score", "wf_score", "pp_score", "banned"]
+    df["banned"] = df["banned"].astype(int)
+    df.to_sql("player", con = con, if_exists = "append", index = False, method = "multi")
+    con.commit()
+
+def add_clears_from_file(file):
+    df = pd.read_csv(file)
+    df.drop([])
+
+add_players_from_file("players.csv")
+
+#def add_clears_from_file(file):
 #file = "gsheetsdl.csv"
 #add_charts_from_file(file)
-
-# out = cur.execute("SELECT * FROM chart INNER JOIN difficulty ON chart.diff = difficulty.id WHERE chart.id = 1 ")
-# print(out.fetchall())
-
-
 con.close()
-
-
