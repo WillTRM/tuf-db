@@ -10,7 +10,7 @@ cur = con.cursor()
 
 # remove me
 def kill_everyone():
-    cur.execute("DELETE FROM chart")
+    cur.execute("DELETE FROM clear")
     con.commit()
 
 # add new difficulty to difficulty list (probably will never be used)
@@ -49,11 +49,11 @@ def add_players_from_file(file):
 
 def add_clears_from_file(file):
     df = pd.read_csv(file)
-    df.drop([])
+    df.drop(["12K", "server message", "wf indicator", "Published Date", "Publish Date (GMT)", "hehe funny id go brrrr", "WF score", "PP score"], axis = 1, inplace = True)
+    df = df[["Pid", "id", "Passer", "Feeling Difficulty", "Title", "*/Raw Video ID", "*/Raw Time (GMT)", "Early!!", "Early!", "EPerfect!", "Perfect!", "LPerfect!", "Late! ", "Late!!", "Score", "Xacc", "NHT", "isLegacy"]]
+    df.columns = ["id", "chart_id", "player_id", "fr", "title", "video", "time", "too_early", "early", "eperfect", "perfect", "lperfect", "late", "too_late", "pp", "acc", "no_hold", "legacy"]
+    df.to_sql("clear", con = con, if_exists = "append", index = False, method = "multi")
+    cur.execute("UPDATE clear SET player_id = (SELECT id FROM player WHERE player.name = clear.player_id)")
+    con.commit()
 
-add_players_from_file("players.csv")
-
-#def add_clears_from_file(file):
-#file = "gsheetsdl.csv"
-#add_charts_from_file(file)
 con.close()
