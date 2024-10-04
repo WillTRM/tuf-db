@@ -1,17 +1,7 @@
 # https://gitlab.com/Screwtapello/sqlite-schema-diagram
 import pandas as pd
 import sqlite3
-
-# connection to db
-con = sqlite3.connect("tuf.db", autocommit = True)
-
-# make database cursor
-cur = con.cursor()
-
-# remove me
-def kill_everyone():
-    cur.execute("DELETE FROM clear")
-    con.commit()
+import formulae
 
 # add new difficulty to difficulty list (probably will never be used)
 def add_difficulty(diff_id, pgu, legacy):
@@ -74,7 +64,7 @@ def add_clears_from_file(file):
     ids = cur.fetchall()
     for chart_index, judgement_index in zip(ids, judgements):
         try:
-            acc = calculate_accuracy(*judgement_index)
+            acc = formulae.calculate_accuracy(*judgement_index)
             cur.execute("UPDATE clear SET acc = (?) WHERE id = (?)", (acc, *chart_index))
         except TypeError:
             cur.execute("UPDATE clear SET acc = 95.0 WHERE id = (?)", (chart_index[0],))
@@ -100,7 +90,7 @@ def add_clears_from_file(file):
             cur.execute("SELECT too_early FROM clear WHERE id = (?)", (id_stuff[0],))
             no_miss = cur.fetchone()[0]
             no_miss = True if (no_miss == 0) else False
-            pp = calculate_pp(score_base, xacc, speed, no_miss)
+            pp = formulae.calculate_pp(score_base, xacc, speed, no_miss)
         cur.execute("UPDATE clear SET pp = (?) WHERE id = (?)", (pp, id_stuff[0]))
 
         if id_stuff[0] % 500 == 0:
@@ -108,49 +98,6 @@ def add_clears_from_file(file):
 
     con.commit()
     print("Clears added")
-
-#---------------
-# returns on a scale of 0 - 100
-def calculate_accuracy(te, e, ep, p, lp, l):
-    perfect = p * 100
-    elperfect = (ep + lp) * 75
-    el = (e + l) * 40
-    tooearly = te * 20
-
-    weighted_sum = perfect + elperfect + el + tooearly
-    judgement_count = te + e + ep + p + lp + l
-
-    return weighted_sum / judgement_count
-
-def calculate_pp(scorebase, xacc, speed, nomiss):
-    if xacc < 95:
-        xacc_multiplier = 1
-    elif xacc < 100:
-        xacc_multiplier = (-0.027 / ((xacc / 100) - 1.0054) + 0.513)
-    elif xacc >= 100:
-        xacc_multiplier = 10
-    else:
-        xacc_multiplier = 1
-
-    if speed is None:
-        speed_multiplier = 1
-    elif speed < 1:
-        speed_multiplier = 0
-    elif speed < 1.1:
-        speed_multiplier = (-3.5 * speed) + 4.5
-    elif speed < 1.5:
-        speed_multiplier = 0.65
-    elif speed < 2:
-        speed_multiplier = (0.7 * speed) - 0.4
-    else:
-        speed_multiplier = 1
-
-    if nomiss:
-        nm_multiplier = 1.1
-    else:
-        nm_multiplier = 1
-
-    return scorebase * xacc_multiplier * speed_multiplier * nm_multiplier
 
 def generate_full_table(chart_file, clear_file, player_file):
     cur.execute("DELETE FROM clear")
@@ -162,6 +109,13 @@ def generate_full_table(chart_file, clear_file, player_file):
     add_players_from_file(player_file)
     add_clears_from_file(clear_file)
     print("Done!")
+
+# ----------------
+
+# connection to db
+con = sqlite3.connect("tuf.db", autocommit = True)
+# make database cursor
+cur = con.cursor()
 
 generate_full_table("charts.csv", "clears.csv", "players.csv")
 
